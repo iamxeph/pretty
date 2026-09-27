@@ -241,3 +241,62 @@ test("f090: syntaxHighlight:false leaves the read body plain", async () => {
     assert.ok(out.includes("const x = 1;"), "content is still shown, just unhighlighted");
   });
 });
+
+// ── edit diff source (details.patch vs details.diff) ─────────────────
+
+test("edit result prefers details.patch over details.diff", async () => {
+  await withTmp(async (cwd) => {
+    mkdirSync(join(cwd, ".pi"));
+    writeFileSync(join(cwd, ".pi", "pretty.json"), JSON.stringify({ diffSplit: true }));
+    const env = makeEnv(cwd, () => BUILTIN_BASH);
+    await env.sessionStart();
+    const edit = env.tools.get("edit")!.renderResult as (
+      r: unknown,
+      o: unknown,
+      t: unknown,
+      c: unknown,
+    ) => unknown;
+
+    const EDIT_RESULT = {
+      content: [{ type: "text", text: "Successfully replaced 1 block(s)." }],
+      details: {
+        diff: " 1 alpha\n-2 bravo\n+2 bravo-mod\n 3 charlie",
+        patch:
+          "===================================================================\n--- a.ts\n+++ a.ts\n@@ -1,3 +1,3 @@\n alpha\n-bravo\n+bravo-mod\n charlie",
+      },
+    };
+
+    // Fake terminal columns so splitFits succeeds in headless test
+    const origCols = process.stdout.columns;
+    try {
+      Object.defineProperty(process.stdout, "columns", { value: 140, configurable: true });
+      const out = textOf(edit(EDIT_RESULT, { expanded: true }, IDENTITY_THEME, { args: { path: "a.ts" } }));
+      assert.ok(out.includes("│"), "split view separator present when details.patch is consumed");
+    } finally {
+      Object.defineProperty(process.stdout, "columns", { value: origCols, configurable: true });
+    }
+  });
+});
+
+test("edit result falls back to details.diff when details.patch is absent", async () => {
+  await withTmp(async (cwd) => {
+    const env = makeEnv(cwd, () => BUILTIN_BASH);
+    await env.sessionStart();
+    const edit = env.tools.get("edit")!.renderResult as (
+      r: unknown,
+      o: unknown,
+      t: unknown,
+      c: unknown,
+    ) => unknown;
+
+    const EDIT_RESULT_NO_PATCH = {
+      content: [{ type: "text", text: "Successfully replaced 1 block(s)." }],
+      details: {
+        diff: " 1 alpha\n-2 bravo\n+2 bravo-mod\n 3 charlie",
+      },
+    };
+
+    const out = textOf(edit(EDIT_RESULT_NO_PATCH, { expanded: true }, IDENTITY_THEME, { args: { path: "a.ts" } }));
+    assert.ok(out.includes("bravo-mod"), "falls back to details.diff content");
+  });
+});

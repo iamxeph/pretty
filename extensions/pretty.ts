@@ -369,6 +369,20 @@ export default function pretty(pi: ExtensionAPI) {
     return diff ? renderPreviewDiff(theme, diff, args?.path) : null;
   }
 
+  /**
+   * pi's edit tool details provide both `patch` (standard unified diff with
+   * hunk headers) and `diff` (pre-formatted line-numbered diff). Prefer the
+   * standard patch so hunk-based word emphasis and side-by-side split work as
+   * designed, falling back to diff.
+   */
+  function extractEditDiff(result: unknown): string {
+    if (!isRecord(result) || !isRecord(result.details)) return "";
+    const { patch, diff } = result.details;
+    if (typeof patch === "string" && patch) return patch;
+    if (typeof diff === "string") return diff;
+    return "";
+  }
+
   /** Renderers per tool; delegate execution to the original untouched. */
   function renderersFor(tool: PrettyTool): Record<string, unknown> {
     switch (tool) {
@@ -451,10 +465,7 @@ export default function pretty(pi: ExtensionAPI) {
             if (isFailed(result)) {
               return new Text(theme.fg("error", failureLine(textContent(result).split("\n")[0] || "Edit failed", clipWidth())), 0, 0);
             }
-            const diff =
-              isRecord(result) && isRecord(result.details) && typeof result.details.diff === "string"
-                ? result.details.diff
-                : "";
+            const diff = extractEditDiff(result);
             const stats = statsLabel(theme, diffStats(diff), settings.diffStatMeter);
             if (!options.expanded) return new Text(stats, 0, 0);
             const body = preview(diff, true, diffLimits());

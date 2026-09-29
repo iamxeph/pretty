@@ -29,6 +29,19 @@ test("readCall shows path and range", () => {
   assert.equal(readCall(theme, { path: "src/a.ts" }), "Read src/a.ts");
   assert.ok(readCall(theme, { path: "a", offset: 10, limit: 5 }).includes("lines 10–14"));
   assert.ok(readCall(theme, { path: "a", offset: 3 }).includes("lines 3+"));
+  // LLMs may pass numeric arguments as strings at runtime
+  assert.ok(
+    readCall(theme, { path: "a", offset: "1" as unknown as number, limit: "2000" as unknown as number }).includes(
+      "lines 1–2000",
+    ),
+  );
+  assert.ok(
+    readCall(theme, { path: "a", offset: "1046" as unknown as number, limit: "400" as unknown as number }).includes(
+      "lines 1046–1445",
+    ),
+  );
+  assert.ok(readCall(theme, { path: "a", offset: "5" as unknown as number }).includes("lines 5+"));
+  assert.ok(readCall(theme, { path: "a", limit: "20" as unknown as number }).includes("lines 1–20"));
 });
 
 test("readSummary counts lines, flags truncation and failure", () => {

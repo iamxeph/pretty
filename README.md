@@ -86,9 +86,11 @@ Aliases are accepted where they are obvious: `list`/`dir` → `ls`, `search`/`rg
 
 ### Coexistence with @pify/shell-background
 
-[`@pify/shell-background`](https://github.com/pifydev/shell-background) also registers the `bash` tool — an async bash with `background: true` and 30-second auto-backgrounding — and pi has no way to compose two renderers for one tool. On pi 0.85–0.87 a duplicate tool name resolves to the **first-loaded** extension, so the two packages must not both claim `bash`.
+[`@pify/shell-background`](https://github.com/pifydev/shell-background) also registers the `bash` tool — an async bash with `background: true` and 30-second auto-backgrounding.
 
-Pretty handles this automatically. It does **not** register `bash` at session start; instead, before the first turn (after every extension has loaded), it checks who owns `bash`:
+**On pi 1.0.1 and later** there is nothing to coexist about. Pretty draws through `pi.registerToolRenderer()`, a resolver pi consults when it draws a tool call, so no tool is ever re-registered: shell-background's `bash` keeps its `execute` and simply gets pretty's compact rendering, exactly like the builtin would. `/pretty` status says `bash: owned by <owner>; pretty draws it, its execute untouched`, and `/pretty off bash` hands the drawing back to whatever the owner would draw with.
+
+**On older pi** there is no way to compose two renderers for one tool, and a duplicate tool name resolves to the **first-loaded** extension, so the two packages must not both claim `bash`. Pretty handles this automatically. It does **not** register `bash` at session start; instead, before the first turn (after every extension has loaded), it checks who owns `bash`:
 
 - If `bash` is still pi's builtin, pretty claims it and adds its compact renderers.
 - If another extension (e.g. shell-background) already owns `bash`, pretty **steps aside** and never touches it. shell-background's async bash stays fully intact, and every other pretty renderer keeps working. The one cost is that pretty's compact rendering is lost for that tool — `/pretty` status says so plainly: `bash: rendered by <owner>; pretty's bash renderers are off`.
@@ -97,9 +99,9 @@ Because pretty only ever registers `bash` when nothing else owns it, load order 
 
 ## MCP tools
 
-> **Currently inactive — pending upstream support.** Extending compact rendering to MCP tools requires taking each tool's real definition (its `execute`) and re-registering it with only the renderers added. pi's extension API exposes `getAllTools()` (names, descriptions, parameters, prompt guidelines and source metadata) but deliberately **not** a tool's `execute`, so no published pi (through 0.87.0) lets an extension wrap another tool this way. The code path is in place and will light up if a future pi exposes tool definitions to extensions; until then it is a no-op, and `/pretty` status reports `MCP tool rendering: unavailable — this pi does not expose tool definitions (execute) to extensions`.
+The seven built-ins are not the only tools in a session — MCP servers add their own, and by default those render with pi's verbose output, exactly what this package collapses everywhere else. On pi 1.0.1 and later pretty extends the same one-line-summary-plus-expand treatment to MCP tools (`mcp__<server>__<tool>`, labelled `Server Tool`), execution untouched as always, and only to tools that carry no `renderCall`/`renderResult` of their own — a renderer the server bridge or another extension registered always wins. Because the resolver is asked by name, this also covers MCP tools in a resumed session before their server has connected. Turn it off with `mcpTools: false`.
 
-The intent, once the API exists: the seven built-ins are not the only tools in a session — MCP servers add their own, and by default those render with pi's verbose output, exactly what this package collapses everywhere else. Pretty would extend the same one-line-summary-plus-expand treatment to MCP tools (execution untouched, as always), touching **only** tools that nothing else is already rendering so it never fights another extension. Turn the (currently inert) feature off with `mcpTools: false`.
+On older pi this feature is inert: extending a renderer to a tool there means re-registering its real definition (its `execute`), which pi's extension API does not hand out. `/pretty` status reports `MCP tool rendering: unavailable` in that case.
 
 ## Settings
 
@@ -159,9 +161,11 @@ Themes only apply in the TUI: `--theme` is ignored under `-p`, for pi's builtin 
 
 ## How it works
 
-Each tool is re-registered through pi's own `createReadTool()` / `createBashTool()` / … factories with `execute` delegated untouched, overriding only `renderCall` and `renderResult`. Highlighting uses pi's exported `highlightCode` and `getLanguageFromPath`, so colours always match your theme and there are no extra dependencies.
+On pi 1.0.1 and later, pretty registers one tool-renderer resolver (`pi.registerToolRenderer()`). When pi draws a tool call it asks the resolver, which returns pretty's `renderCall`/`renderResult` over whatever would otherwise draw the tool (so a builtin's `renderShell` is kept), or defers with `next()` for a tool that is turned off. No tool is re-registered, so the tool registry, the system prompt's tool list and the prompt cache are never touched by this package. A `/pretty` toggle is a repaint.
 
-Only one extension can own a tool's rendering. Remove any other tool-renderer extension before installing this one.
+On older pi each tool is re-registered through pi's own `createReadTool()` / `createBashTool()` / … factories with `execute` delegated untouched, overriding only `renderCall` and `renderResult`; there, only one extension can own a tool's rendering, so remove any other tool-renderer extension before installing this one.
+
+Highlighting uses pi's exported `highlightCode` and `getLanguageFromPath`, so colours always match your theme and there are no extra dependencies.
 
 ## License
 

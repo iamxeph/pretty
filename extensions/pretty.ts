@@ -461,6 +461,7 @@ export default function pretty(pi: ExtensionAPI) {
             result: unknown,
             options: { expanded?: boolean; isPartial?: boolean },
             theme: ThemeLike,
+            context?: { durationMs?: number },
           ) => {
             // Build output and progress bars are full of cursor moves,
             // erase-line and carriage returns; strip all but colour and tidy
@@ -470,7 +471,9 @@ export default function pretty(pi: ExtensionAPI) {
               return new Text(`${theme.fg("warning", "Running…")}\n${preview(output, false, bodyLimits())}`, 0, 0);
             }
             const failed = isFailed(result);
-            const summary = bashSummary(theme, output, failed, clipWidth());
+            // pi >= 1.1 records how long the tool ran (context.durationMs); the
+            // compact line shows it where pi's own row would say "Took".
+            const summary = bashSummary(theme, output, failed, clipWidth(), context?.durationMs);
             const body = output && (options.expanded || failed) ? `\n${preview(output, options.expanded === true, bodyLimits())}` : "";
             return new Text(summary + body, 0, 0);
           },

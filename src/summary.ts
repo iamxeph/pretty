@@ -96,14 +96,39 @@ export function bashCall(
   return title(theme, "Bash") + theme.fg("accent", shown);
 }
 
-export function bashSummary(theme: ThemeLike, output: string, failed: boolean, max: number = DEFAULT_CLIP): string {
+/** `0.4s`, `4.2s`, `1m 5s`, `1h 2m 3s` — the shape pi's own bash row uses for `Took`. */
+export function formatDuration(ms: number): string {
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const total = Math.floor(seconds);
+  const minutes = Math.floor(total / 60);
+  const rest = total % 60;
+  if (minutes < 60) return `${minutes}m ${rest}s`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ${rest}s`;
+}
+
+/**
+ * The collapsed bash line. `durationMs` is the recorded execution time pi
+ * hands renderers since 1.1 (`context.durationMs`); it rides on a success
+ * only, so the failure line keeps its clip guarantee.
+ */
+export function bashSummary(
+  theme: ThemeLike,
+  output: string,
+  failed: boolean,
+  max: number = DEFAULT_CLIP,
+  durationMs?: number,
+): string {
   if (failed) {
     const first = output.split("\n").find((l) => l.trim()) ?? "Command failed";
     // "✗ " is two columns the clip must leave room for.
     return theme.fg("error", `✗ ${failureLine(first, max, 2)}`);
   }
   const lines = countLines(output);
-  return theme.fg("success", "✓") + theme.fg("dim", lines > 0 ? ` ${lines} output ${lines === 1 ? "line" : "lines"}` : " done");
+  const took = typeof durationMs === "number" && Number.isFinite(durationMs) && durationMs >= 0 ? ` · ${formatDuration(durationMs)}` : "";
+  return (
+    theme.fg("success", "✓") + theme.fg("dim", (lines > 0 ? ` ${lines} output ${lines === 1 ? "line" : "lines"}` : " done") + took)
+  );
 }
 
 export function editCall(theme: ThemeLike, args: { path?: string }, max: number = DEFAULT_CLIP): string {

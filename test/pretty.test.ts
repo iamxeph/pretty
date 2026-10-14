@@ -49,6 +49,12 @@ test("bashCall collapses multi-line commands until expanded", () => {
 test("bashSummary success and failure shapes", () => {
   assert.equal(bashSummary(theme, "", false), "✓ done");
   assert.equal(bashSummary(theme, "one\ntwo", false), "✓ 2 output lines");
+  // pi >= 1.1 hands renderers the recorded execution time; it rides on a success only.
+  assert.equal(bashSummary(theme, "one\ntwo", false, 100, 4200), "✓ 2 output lines · 4.2s");
+  assert.equal(bashSummary(theme, "", false, 100, 65_000), "✓ done · 1m 5s");
+  assert.equal(bashSummary(theme, "", false, 100, 3_723_000), "✓ done · 1h 2m 3s");
+  assert.equal(bashSummary(theme, "", false, 100, Number.NaN), "✓ done", "a missing or unusable duration shows nothing");
+  assert.doesNotMatch(bashSummary(theme, "boom", true, 100, 4200), /4\.2s/, "the failure line keeps its clip guarantee");
   assert.equal(bashSummary(theme, "boom: exit 1", true), "✗ boom: exit 1");
 });
 

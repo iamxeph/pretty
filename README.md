@@ -27,6 +27,8 @@ Expand with pi's standard toggle (Ctrl+O on a tool block). **Ctrl+Shift+O** togg
 
 Output rendered into these compact rows is first stripped of everything but colour: a build tool's progress bar (cursor moves, erase-line, carriage returns) or a program that sets the window title would otherwise scribble over the row or the rest of the transcript. Only SGR colour survives, and runs of blank lines are collapsed — display only, the result the model sees is pi's own, untouched.
 
+On pi 1.1 and later the collapsed `bash` line also carries how long the command ran (`✓ 12 output lines · 4.2s`), from the execution time pi records with the result, so a slow step reads as slow without expanding it; pi's own row says the same as `Took`.
+
 ## Seeing what actually changed
 
 Line colour tells you *that* a line changed. When the change is one argument in a forty-column call, finding it is still your job — you read both lines and spot the difference yourself, which is the work the diff was supposed to have done.
